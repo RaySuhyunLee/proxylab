@@ -31,6 +31,18 @@ ssize_t Rio_readn_w(int fd, void *ptr, size_t nbytes);
 ssize_t Rio_readlineb_w(rio_t *rp, void *usrbuf, size_t maxlen);
 void Rio_writen_w(int fd, void *usrbuf, size_t n);
 
+void openclient(char* host, int port) {
+	int sockfd;
+	struct sockaddr_in server;
+	char *msg_send[100], *msg_recv[100];
+
+	sockfd = socket(PF_INET, SOCK_STREAM, 0);
+	if (sockfd == -1) {
+		printf("Failed to create client socket.\n");
+		exit(1);
+	}
+}
+
 void openserver(int port) {
 	int listenfd, connfd;
 	struct sockaddr_in server, client;
