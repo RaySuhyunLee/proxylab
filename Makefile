@@ -1,6 +1,6 @@
 CC=gcc -m32
 CFLAGS=-O2 -Wall
-LIBS=-lpthread
+LIBS=-pthread
 
 FILES = Makefile csapp.h csapp.c echoclient.c echoservert.c echo.c proxy.c
 
