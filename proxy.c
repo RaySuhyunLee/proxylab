@@ -46,8 +46,9 @@ void openclient(char* host, int port) {
 void openserver(int port) {
 	int listenfd, connfd;
 	struct sockaddr_in server, client;
-	int clientlen;
-	char *msg_send[100], *msg_recv[100];
+	int clientlen, readlen, writelen;
+	int SEND_BUFFER_SIZE = 100, RECV_BUFFER_SIZE = 100;
+	char msg_send[SEND_BUFFER_SIZE], msg_recv[RECV_BUFFER_SIZE];
 	
 	listenfd = socket(PF_INET, SOCK_STREAM, 0);
 	if (listenfd == -1) {
@@ -77,11 +78,19 @@ void openserver(int port) {
 			exit(1);
 		}
 		
-		if (read(connfd, msg_recv, 100) == -1) {
-			printf("Failed to receive.\n");
-			exit(1);
+		while(1) {
+			if ((readlen = read(connfd, msg_recv, RECV_BUFFER_SIZE-1)) == -1) {
+				printf("Failed to receive.\n");
+				exit(1);
+			}
+			if (readlen == 0)
+				break;
+
+			msg_recv[readlen] = NULL;
+			printf("len: %d, recv: %s", readlen, msg_recv);
+			fflush(stdout);
+			write(connfd, msg_recv, readlen);
 		}
-		printf("recv: %s", msg_recv);
 		
 		if (close(connfd) == -1) {
 			printf("Failed to close.\n");
