@@ -54,7 +54,7 @@ int parse_line(char* input, char* output) {
 		}
 	}
 	
-	if ((host == NULL || parsed[1] == NULL || parsed[2] == NULL)
+	if ((parsed[2] == NULL)
 			|| (port = atoi(parsed[1])) == 0) {
 		strncpy(output, usage, strlen(usage));
 		return strlen(usage);
@@ -160,7 +160,6 @@ void openserver(int port) {
 int main(int argc, char **argv)
 {
 	FILE* fp;
-	char test[100];
 
 	/* open a file for logging */
 	fp = fopen("./proxy.log", "w+");
