@@ -30,6 +30,26 @@ int open_clientfd_ts(char *hostname, int port, sem_t *mutexp);
 ssize_t Rio_readn_w(int fd, void *ptr, size_t nbytes);
 ssize_t Rio_readlineb_w(rio_t *rp, void *usrbuf, size_t maxlen);
 void Rio_writen_w(int fd, void *usrbuf, size_t n);
+int openclient(char* host, int port, char* msg_send, char* msg_recv);
+void openserver(int port);
+int parse_line(char* input, char* output);
+
+ssize_t Rio_readn_w(int fd, void *ptr, size_t nbytes) {
+	ssize_t recvlen;
+	if ((recvlen = read(fd, ptr, nbytes)) == -1) {
+		printf("Failed to read.\n");
+	}
+	return recvlen;
+}
+
+//ssize_t Rio_readlineb_w(rio_t *rp, void *usrbuf, size_t maxlen) {
+//}
+
+void Rio_writen_w(int fd, void *usrbuf, size_t n) {
+	if (write(fd, usrbuf, n) == -1) {
+		printf("Failed to write.\n");
+	}
+}
 
 /** parse_line()
  * parses a line of string and sends a proper request to
@@ -83,15 +103,9 @@ int openclient(char* host, int port, char* msg_send, char* msg_recv) {
 		exit(1);
 	}
 
-	if (write(sockfd, msg_send, strlen(msg_send)) == -1) {
-		printf("Failed to write.\n");
-		exit(1);
-	}
+	Rio_writen_w(sockfd, msg_send, strlen(msg_send));
 
-	if ((recvlen = read(sockfd, msg_recv, strlen(msg_recv))) == -1) {
-		printf("Failed to read.\n");
-		exit(1);
-	}
+	recvlen = Rio_readn_w(sockfd, msg_recv, strlen(msg_recv));
 
 	Close(sockfd);	
 	return recvlen;
@@ -133,19 +147,17 @@ void openserver(int port) {
 		}
 		
 		while(1) {
-			if ((readlen = read(connfd, msg_recv, RECV_BUFFER_SIZE-1)) == -1) {
-				printf("Failed to receive.\n");
-				exit(1);
-			}
-			if (readlen == 0)
+			readlen = Rio_readn_w(connfd, msg_recv, RECV_BUFFER_SIZE-1);
+
+			if (readlen == -1)
 				break;
 
-			msg_recv[readlen] = NULL;
+			msg_recv[readlen] = '\0';
 			printf("len: %d, recv: %s", readlen, msg_recv);
 			fflush(stdout);
 
 			if((writelen = parse_line(msg_recv, msg_send)) >= 0) {
-				write(connfd, msg_send, writelen);
+				Rio_writen_w(connfd, msg_send, writelen);
 			}
 		}
 		
