@@ -31,12 +31,13 @@ ssize_t Rio_readn_w(int fd, void *ptr, size_t nbytes);
 ssize_t Rio_readlineb_w(rio_t *rp, void *usrbuf, size_t maxlen);
 void Rio_writen_w(int fd, void *usrbuf, size_t n);
 
-void parse_line(char* input) {
+int parse_line(char* input, char* output) {
 	char* parsed[3] = {NULL, NULL, NULL};
 	int host_max = 30;
 	char host[host_max+1];
 	int port;
 	int cnt=0, i, len;
+	char usage[] = "proxy usage: <host> <port> <message>\n";
 	len = strlen(input);
 	parsed[cnt++] = input;
 	for(i = 0; i < len - 1 && cnt < 3; i++) {
@@ -49,12 +50,14 @@ void parse_line(char* input) {
 		}
 	}
 	
-	if (host == NULL || parsed[1] == NULL || parsed[2] == NULL) {
-		printf("proxy usage: <host> <port> <message>\n");
-	} else if ((port = atoi(parsed[1])) == 0) {
-		printf("proxy usage: <host> <port> <message>\n");
+	if ((host == NULL || parsed[1] == NULL || parsed[2] == NULL)
+			|| (port = atoi(parsed[1])) == 0) {
+		strncpy(output, usage, strlen(usage));
+		return strlen(usage);
 	} else {
-		printf("%s, %d, %s\n", host, port, parsed[2]); 
+		strncpy(output, "bla\n", 4);
+		return 4;
+		//open_client();
 	}
 }
 
@@ -141,7 +144,9 @@ void openserver(int port) {
 			printf("len: %d, recv: %s", readlen, msg_recv);
 			fflush(stdout);
 
-			write(connfd, msg_recv, readlen);
+			if((writelen = parse_line(msg_recv, msg_send)) > 0) {
+				write(connfd, msg_send, writelen);
+			}
 		}
 		
 		if (close(connfd) == -1) {
@@ -169,10 +174,7 @@ int main(int argc, char **argv)
 			exit(0);
 	}
 
-	//openserver(atoi(argv[1]));
-	parse_line("blabla blabla blabla");
-	parse_line("blabla 3000 blabla");
-	parse_line("blabla 3000 ");
+	openserver(atoi(argv[1]));
 		
 	/* close log file */
 	fclose(fp);
