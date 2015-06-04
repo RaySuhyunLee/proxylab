@@ -93,10 +93,7 @@ int openclient(char* host, int port, char* msg_send, char* msg_recv) {
 		exit(1);
 	}
 
-	if (close(sockfd) == -1) {
-		printf("Failed to close.\n");
-		exit(1);
-	}
+	Close(sockfd);	
 	return recvlen;
 }
 
@@ -152,10 +149,7 @@ void openserver(int port) {
 			}
 		}
 		
-		if (close(connfd) == -1) {
-			printf("Failed to close.\n");
-			exit(1);
-		}
+		Close(connfd);
 	}
 }
 
