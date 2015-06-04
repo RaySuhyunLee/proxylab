@@ -55,13 +55,11 @@ int parse_line(char* input, char* output) {
 		strncpy(output, usage, strlen(usage));
 		return strlen(usage);
 	} else {
-		strncpy(output, "bla\n", 4);
-		return 4;
-		//open_client();
+		return openclient(host, port, parsed[2], output);
 	}
 }
 
-void openclient(char* host, int port, char* msg_send, char* msg_recv) {
+int openclient(char* host, int port, char* msg_send, char* msg_recv) {
 	int sockfd;
 	struct sockaddr_in server;
 	int recvlen;
@@ -95,6 +93,7 @@ void openclient(char* host, int port, char* msg_send, char* msg_recv) {
 		printf("Failed to close.\n");
 		exit(1);
 	}
+	return recvlen;
 }
 
 void openserver(int port) {
@@ -144,7 +143,7 @@ void openserver(int port) {
 			printf("len: %d, recv: %s", readlen, msg_recv);
 			fflush(stdout);
 
-			if((writelen = parse_line(msg_recv, msg_send)) > 0) {
+			if((writelen = parse_line(msg_recv, msg_send)) >= 0) {
 				write(connfd, msg_send, writelen);
 			}
 		}
