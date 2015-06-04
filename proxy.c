@@ -95,11 +95,8 @@ int openclient(char* host, int port, char* msg_send, char* msg_recv) {
 	struct sockaddr_in server;
 	int recvlen;
 
+	/* get a socket */
 	sockfd = socket(PF_INET, SOCK_STREAM, 0);
-	if (sockfd == -1) {
-		printf("Failed to create client socket.\n");
-		exit(1);
-	}
 
 	/* configure real server information */
 	server.sin_family = AF_INET;
@@ -107,16 +104,11 @@ int openclient(char* host, int port, char* msg_send, char* msg_recv) {
 	server.sin_addr.s_addr = inet_addr(host);
 	
 	/* connect to the server */
-	if (connect(sockfd, (struct sockaddr*)&server, sizeof(server)) == -1) {
-		printf("Failed to connect to server.\n");
-		exit(1);
-	}
-
+	Connect(sockfd, (struct sockaddr*)&server, sizeof(server));
   /* write to real server */
 	Rio_writen_w(sockfd, msg_send, strlen(msg_send));
 	/* read from real server */
 	recvlen = Rio_readn_w(sockfd, msg_recv, strlen(msg_recv));
-	
 	/* close */
 	Close(sockfd);	
 	return recvlen;
@@ -130,11 +122,7 @@ void openserver(int port) {
 	char msg_send[SEND_BUFFER_SIZE], msg_recv[RECV_BUFFER_SIZE];
 	
 	/* get a socket */
-	listenfd = socket(PF_INET, SOCK_STREAM, 0);
-	if (listenfd == -1) {
-		printf("Failed to create server socket.\n");
-		exit(1);
-	}
+	listenfd = Socket(PF_INET, SOCK_STREAM, 0);
 
 	/* configure proxy server settings */
 	memset(&server, 0, sizeof(server));
@@ -143,24 +131,15 @@ void openserver(int port) {
 	server.sin_addr.s_addr = htonl(INADDR_ANY);
 	
 	/* bind */
-	if (bind(listenfd, (struct sockaddr*)&server, sizeof(server)) == -1) {
-		printf("Failed to bind.\n");
-		exit(1);
-	}
+	Bind(listenfd, (struct sockaddr*)&server, sizeof(server));
 
 	/* listen to the connection from the client */
-	if (listen(listenfd, 1) == -1) { // FIXME modify the connection number
-		printf("Failed to listen.\n");
-		exit(1);
-	}	
+	Listen(listenfd, 1) // FIXME modify the connection number
 
 	while (1) {
 		clientlen = sizeof(client);
-		if ((connfd = accept(listenfd,
-						(struct sockaddr*)&client, &clientlen)) == -1) {
-			printf("Failed to accept.\n");
-			exit(1);
-		}
+		connfd = Accept(listenfd,
+						(struct sockaddr*)&client, &clientlen);
 		
 		while(1) {
 			readlen = Rio_readn_w(connfd, msg_recv, RECV_BUFFER_SIZE-1);
