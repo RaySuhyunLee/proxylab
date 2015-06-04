@@ -37,18 +37,26 @@ int parse_line(char* input, char* output);
 
 ssize_t Rio_readn_w(int fd, void *ptr, size_t nbytes) {
 	ssize_t recvlen;
-	if ((recvlen = read(fd, ptr, nbytes)) == -1) {
-		printf("Failed to read.\n");
+	if ((recvlen = rio_readn(fd, ptr, nbytes)) == -1) {
+		printf("Rio_readn error\n");
+		return 0;
 	}
 	return recvlen;
 }
 
-//ssize_t Rio_readlineb_w(rio_t *rp, void *usrbuf, size_t maxlen) {
-//}
+ssize_t Rio_readlineb_w(rio_t *rp, void *usrbuf, size_t maxlen) {
+	ssize_t readcnt;
+
+	if ((readcnt = rio_readlineb(rp, usrbuf, maxlen)) < 0) {
+		printf("Rio_readlineb error\n");
+		return 0;
+	}
+	return readcnt;
+}
 
 void Rio_writen_w(int fd, void *usrbuf, size_t n) {
-	if (write(fd, usrbuf, n) == -1) {
-		printf("Failed to write.\n");
+	if (rio_writen(fd, usrbuf, n) == -1) {
+		printf("Rio_writen error\n");
 	}
 }
 
@@ -134,7 +142,7 @@ void openserver(int port) {
 	Bind(listenfd, (struct sockaddr*)&server, sizeof(server));
 
 	/* listen to the connection from the client */
-	Listen(listenfd, 1) // FIXME modify the connection number
+	Listen(listenfd, 1); // FIXME modify the connection number
 
 	while (1) {
 		clientlen = sizeof(client);
