@@ -31,6 +31,10 @@ ssize_t Rio_readn_w(int fd, void *ptr, size_t nbytes);
 ssize_t Rio_readlineb_w(rio_t *rp, void *usrbuf, size_t maxlen);
 void Rio_writen_w(int fd, void *usrbuf, size_t n);
 
+/** parse_line()
+ * parses a line of string and sends a proper request to
+ * real server.
+ */
 int parse_line(char* input, char* output) {
 	char* parsed[3] = {NULL, NULL, NULL};
 	int host_max = 30;
@@ -179,5 +183,3 @@ int main(int argc, char **argv)
 	fclose(fp);
 	return 0;
 }
-
-
