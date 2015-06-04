@@ -30,6 +30,7 @@ int open_clientfd_ts(char *hostname, int port, sem_t *mutexp);
 ssize_t Rio_readn_w(int fd, void *ptr, size_t nbytes);
 ssize_t Rio_readlineb_w(rio_t *rp, void *usrbuf, size_t maxlen);
 void Rio_writen_w(int fd, void *usrbuf, size_t n);
+
 int openclient(char* host, int port, char* msg_send, char* msg_recv);
 void openserver(int port);
 int parse_line(char* input, char* output);
@@ -64,6 +65,8 @@ int parse_line(char* input, char* output) {
 	char usage[] = "proxy usage: <host> <port> <message>\n";
 	len = strlen(input);
 	parsed[cnt++] = input;
+
+	/* parse the input */
 	for(i = 0; i < len - 1 && cnt < 3; i++) {
 		if (input[i] == ' ') {
 			if (cnt == 1) {
@@ -74,8 +77,8 @@ int parse_line(char* input, char* output) {
 		}
 	}
 	
-	if ((parsed[2] == NULL)
-			|| (port = atoi(parsed[1])) == 0) {
+	if ((parsed[2] == NULL)  /* arguments less than 3 */
+			|| (port = atoi(parsed[1])) == 0) { /* second argument is not a number */
 		strncpy(output, usage, strlen(usage));
 		return strlen(usage);
 	} else {
@@ -83,6 +86,10 @@ int parse_line(char* input, char* output) {
 	}
 }
 
+/** openclient()
+ * Opens a new client that connects to the real server.
+ * Sends request to and get response from the server.
+ */
 int openclient(char* host, int port, char* msg_send, char* msg_recv) {
 	int sockfd;
 	struct sockaddr_in server;
@@ -94,19 +101,23 @@ int openclient(char* host, int port, char* msg_send, char* msg_recv) {
 		exit(1);
 	}
 
+	/* configure real server information */
 	server.sin_family = AF_INET;
 	server.sin_port = htons(port);
 	server.sin_addr.s_addr = inet_addr(host);
-
+	
+	/* connect to the server */
 	if (connect(sockfd, (struct sockaddr*)&server, sizeof(server)) == -1) {
 		printf("Failed to connect to server.\n");
 		exit(1);
 	}
 
+  /* write to real server */
 	Rio_writen_w(sockfd, msg_send, strlen(msg_send));
-
+	/* read from real server */
 	recvlen = Rio_readn_w(sockfd, msg_recv, strlen(msg_recv));
-
+	
+	/* close */
 	Close(sockfd);	
 	return recvlen;
 }
@@ -118,21 +129,26 @@ void openserver(int port) {
 	int SEND_BUFFER_SIZE = 100, RECV_BUFFER_SIZE = 100;
 	char msg_send[SEND_BUFFER_SIZE], msg_recv[RECV_BUFFER_SIZE];
 	
+	/* get a socket */
 	listenfd = socket(PF_INET, SOCK_STREAM, 0);
 	if (listenfd == -1) {
 		printf("Failed to create server socket.\n");
 		exit(1);
 	}
 
+	/* configure proxy server settings */
 	memset(&server, 0, sizeof(server));
 	server.sin_family = AF_INET;
 	server.sin_port = htons(port);
 	server.sin_addr.s_addr = htonl(INADDR_ANY);
+	
+	/* bind */
 	if (bind(listenfd, (struct sockaddr*)&server, sizeof(server)) == -1) {
 		printf("Failed to bind.\n");
 		exit(1);
 	}
 
+	/* listen to the connection from the client */
 	if (listen(listenfd, 1) == -1) { // FIXME modify the connection number
 		printf("Failed to listen.\n");
 		exit(1);
@@ -161,6 +177,7 @@ void openserver(int port) {
 			}
 		}
 		
+		/* close */
 		Close(connfd);
 	}
 }
