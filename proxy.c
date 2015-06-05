@@ -125,6 +125,7 @@ int openclient(char* host, int port, char* msg_send, char* msg_recv) {
 void openserver(int port) {
 	int listenfd, connfd;
 	struct sockaddr_in server, client;
+	rio_t rp;
 	int clientlen, readlen, writelen;
 	int SEND_BUFFER_SIZE = 100, RECV_BUFFER_SIZE = 100;
 	char msg_send[SEND_BUFFER_SIZE], msg_recv[RECV_BUFFER_SIZE];
@@ -148,11 +149,13 @@ void openserver(int port) {
 		clientlen = sizeof(client);
 		connfd = Accept(listenfd,
 						(struct sockaddr*)&client, &clientlen);
+
+		Rio_readinitb(&rp, connfd);
 		
 		while(1) {
-			readlen = Rio_readn_w(connfd, msg_recv, RECV_BUFFER_SIZE-1);
+			readlen = Rio_readlineb_w(&rp, msg_recv, RECV_BUFFER_SIZE-1);
 
-			if (readlen == -1)
+			if (readlen == 0)
 				break;
 
 			msg_recv[readlen] = '\0';
