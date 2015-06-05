@@ -101,6 +101,7 @@ int parse_line(char* input, char* output) {
 int openclient(char* host, int port, char* msg_send, char* msg_recv) {
 	int sockfd;
 	struct sockaddr_in server;
+	rio_t rp;
 	int recvlen;
 
 	/* get a socket */
@@ -113,10 +114,12 @@ int openclient(char* host, int port, char* msg_send, char* msg_recv) {
 	
 	/* connect to the server */
 	Connect(sockfd, (struct sockaddr*)&server, sizeof(server));
+	/* initialize rio_t */
+	Rio_readinitb(&rp, sockfd);
   /* write to real server */
 	Rio_writen_w(sockfd, msg_send, strlen(msg_send));
 	/* read from real server */
-	recvlen = Rio_readn_w(sockfd, msg_recv, strlen(msg_recv));
+	recvlen = Rio_readlineb_w(&rp, msg_recv, strlen(msg_recv));
 	/* close */
 	Close(sockfd);	
 	return recvlen;
