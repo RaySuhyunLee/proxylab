@@ -35,6 +35,12 @@ int openclient(char* host, int port, char* msg_send, char* msg_recv);
 void openserver(int port);
 int parse_line(char* input, char* output);
 
+int open_clientfd_ts(char *hostname, int port, sem_t *mutexp) {
+	int clientfd;
+	struct hostent *hp;
+	struct sockaddr_in serveraddr;
+}
+
 ssize_t Rio_readn_w(int fd, void *ptr, size_t nbytes) {
 	ssize_t recvlen;
 	if ((recvlen = rio_readn(fd, ptr, nbytes)) == -1) {
