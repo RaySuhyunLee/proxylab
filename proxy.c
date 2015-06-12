@@ -22,6 +22,8 @@
 /* Undefine this if you don't want debugging output */
 #define DEBUG
 
+static sem_t mutex;
+
 /*
  * Functions to define
  */
@@ -37,8 +39,35 @@ int parse_line(char* input, char* output, size_t buffersize);
 
 int open_clientfd_ts(char *hostname, int port, sem_t *mutexp) {
 	int clientfd;
-	struct hostent *hp;
-	struct sockaddr_in serveraddr;
+	struct hostent *hep;
+	struct sockaddr_in server;
+
+	if ((clientfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		return -1;
+	}
+	
+	bzero((char*)&server, sizeof(server));
+	server.sin_family = AF_INET;
+	server.sin_port = htons(port);
+
+	/* get the address */
+	sem_wait(mutexp);
+	hep = gethostbyname(hostname); /* thread unsafe */
+	if (hep == NULL) {
+		bcopy(hostname,
+				(char*)&server.sin_addr.s_addr,
+				strlen(hostname));
+	} else {
+		bcopy((char*)hep->h_addr_list[0],
+				(char*)&server.sin_addr.s_addr,
+				hep->h_length);
+	}
+	sem_post(mutexp);
+
+	if (connect(clientfd, (struct sockaddr*)&server, sizeof(server)) < 0) {
+		return -1;
+	}
+	return clientfd;
 }
 
 ssize_t Rio_readn_w(int fd, void *ptr, size_t nbytes) {
@@ -106,20 +135,11 @@ int parse_line(char* input, char* output, size_t buffersize) {
  */
 int openclient(char* host, int port, char* msg_send, char* msg_recv, size_t buffersize) {
 	int sockfd;
-	struct sockaddr_in server;
 	rio_t rp;
 	int recvlen;
 
-	/* get a socket */
-	sockfd = socket(PF_INET, SOCK_STREAM, 0);
-
-	/* configure real server information */
-	server.sin_family = AF_INET;
-	server.sin_port = htons(port);
-	server.sin_addr.s_addr = inet_addr(host);
-	
 	/* connect to the server */
-	Connect(sockfd, (struct sockaddr*)&server, sizeof(server));
+	sockfd = open_clientfd_ts(host, port, mutex);
 
 	/* initialize rio_t */
 	Rio_readinitb(&rp, sockfd);
@@ -206,6 +226,8 @@ int main(int argc, char **argv)
 			fprintf(stderr, "Usage: %s <port number>\n", argv[0]);
 			exit(0);
 	}
+
+	sem_init(mutex, 0, 1);
 
 	openserver(atoi(argv[1]));
 		
