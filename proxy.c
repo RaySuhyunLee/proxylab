@@ -22,7 +22,7 @@
 /* Undefine this if you don't want debugging output */
 #define DEBUG
 
-static sem_t mutex;
+static sem_t *keyp;
 
 /*
  * Functions to define
@@ -171,7 +171,7 @@ int sendtoserver(char* host, int port, char* msg_send, char* msg_recv, size_t bu
 	ssize_t recvlen;
 
 	/* connect to the server */
-	sockfd = open_clientfd_ts(host, port, &mutex);
+	sockfd = open_clientfd_ts(host, port, keyp);
 
 	/* initialize rio_t */
 	Rio_readinitb(&rp, sockfd);
@@ -238,7 +238,11 @@ int main(int argc, char **argv)
 			exit(0);
 	}
 
-	sem_init(&mutex, 0, 1);
+	/* open a named semaphore */
+	if((keyp = sem_open("key", O_CREAT, 0, 1)) == SEM_FAILED) {
+		printf("Failed to open a semaphore");
+		return 1;
+	}
 
 	begin(atoi(argv[1]));
 		
