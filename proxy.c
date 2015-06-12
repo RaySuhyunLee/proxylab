@@ -33,9 +33,38 @@ ssize_t Rio_readn_w(int fd, void *ptr, size_t nbytes);
 ssize_t Rio_readlineb_w(rio_t *rp, void *usrbuf, size_t maxlen);
 void Rio_writen_w(int fd, void *usrbuf, size_t n);
 
-int openclient(char* host, int port, char* msg_send, char* msg_recv, size_t buffersize);
-void openserver(int port);
+int sendtoserver(char* host, int port, char* msg_send, char* msg_recv, size_t buffersize);
+void begin(int port);
 int parse_line(char* input, char* output, size_t buffersize);
+
+void* process_request(void* vargp) {
+	int connfd = *(int*)vargp;
+  ssize_t readlen, writelen;
+	int SEND_BUFFER_SIZE = 100, RECV_BUFFER_SIZE = 100;
+	char msg_send[SEND_BUFFER_SIZE], msg_recv[RECV_BUFFER_SIZE];
+	rio_t rp;
+
+	Rio_readinitb(&rp, connfd);
+	
+	while(1) {
+		readlen = Rio_readlineb_w(&rp, msg_recv, RECV_BUFFER_SIZE-1);
+		if (readlen == 0)
+			break;
+
+		msg_recv[readlen] = '\0';
+		printf("len: %lu, recv: %s", readlen, msg_recv);
+		fflush(stdout);
+
+		if((writelen = parse_line(msg_recv, msg_send, SEND_BUFFER_SIZE-1)) >= 0) {
+			Rio_writen_w(connfd, msg_send, writelen);
+		}
+	}
+	
+	/* close */
+	Close(connfd);
+
+	return NULL;
+}
 
 int open_clientfd_ts(char *hostname, int port, sem_t *mutexp) {
 	int clientfd;
@@ -129,17 +158,17 @@ int parse_line(char* input, char* output, size_t buffersize) {
 	}
 }
 
-/** snedtoserver()
+/** sendtoserver()
  * Opens a new client that connects to the real server.
  * Sends request to the server and get response.
  */
 int sendtoserver(char* host, int port, char* msg_send, char* msg_recv, size_t buffersize) {
 	int sockfd;
 	rio_t rp;
-	int recvlen;
+	ssize_t recvlen;
 
 	/* connect to the server */
-	sockfd = open_clientfd_ts(host, port, mutex);
+	sockfd = open_clientfd_ts(host, port, &mutex);
 
 	/* initialize rio_t */
 	Rio_readinitb(&rp, sockfd);
@@ -147,13 +176,13 @@ int sendtoserver(char* host, int port, char* msg_send, char* msg_recv, size_t bu
   /* write to real server */
 	Rio_writen_w(sockfd, msg_send, strlen(msg_send));
 #ifdef DEBUG
-	printf("sent %d bytes to server\n", strlen(msg_send));
+	printf("sent %lu bytes to server\n", strlen(msg_send));
 #endif
 
 	/* read from real server */
 	recvlen = Rio_readlineb_w(&rp, msg_recv, buffersize);
 #ifdef DEBUG
-	printf("received %d bytes from server\n", recvlen);
+	printf("received %zd bytes from server\n", recvlen);
 #endif
 	/* close */
 	Close(sockfd);
@@ -161,12 +190,9 @@ int sendtoserver(char* host, int port, char* msg_send, char* msg_recv, size_t bu
 }
 
 void begin(int port) {
-	int listenfd, connfd;
+	int listenfd, *connfdp;
 	struct sockaddr_in server, client;
-	rio_t rp;
-	int clientlen, readlen, writelen;
-	int SEND_BUFFER_SIZE = 100, RECV_BUFFER_SIZE = 100;
-	char msg_send[SEND_BUFFER_SIZE], msg_recv[RECV_BUFFER_SIZE];
+	int clientlen;
 	
 	/* get a socket */
 	listenfd = Socket(PF_INET, SOCK_STREAM, 0);
@@ -185,28 +211,10 @@ void begin(int port) {
 
 	while (1) {
 		clientlen = sizeof(client);
-		connfd = Accept(listenfd,
+		connfdp = malloc(sizeof(int));
+		*connfdp = Accept(listenfd,
 						(struct sockaddr*)&client, &clientlen);
-
-		Rio_readinitb(&rp, connfd);
-		
-		while(1) {
-			readlen = Rio_readlineb_w(&rp, msg_recv, RECV_BUFFER_SIZE-1);
-
-			if (readlen == 0)
-				break;
-
-			msg_recv[readlen] = '\0';
-			printf("len: %d, recv: %s", readlen, msg_recv);
-			fflush(stdout);
-
-			if((writelen = parse_line(msg_recv, msg_send, SEND_BUFFER_SIZE-1)) >= 0) {
-				Rio_writen_w(connfd, msg_send, writelen);
-			}
-		}
-		
-		/* close */
-		Close(connfd);
+		process_request(connfdp);
 	}
 }
 
