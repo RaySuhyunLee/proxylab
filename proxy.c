@@ -125,15 +125,15 @@ int parse_line(char* input, char* output, size_t buffersize) {
 		strncpy(output, usage, strlen(usage));
 		return strlen(usage);
 	} else {
-		return openclient(host, port, parsed[2], output, buffersize);
+		return sendtoserver(host, port, parsed[2], output, buffersize);
 	}
 }
 
-/** openclient()
+/** snedtoserver()
  * Opens a new client that connects to the real server.
- * Sends request to and get response from the server.
+ * Sends request to the server and get response.
  */
-int openclient(char* host, int port, char* msg_send, char* msg_recv, size_t buffersize) {
+int sendtoserver(char* host, int port, char* msg_send, char* msg_recv, size_t buffersize) {
 	int sockfd;
 	rio_t rp;
 	int recvlen;
@@ -160,7 +160,7 @@ int openclient(char* host, int port, char* msg_send, char* msg_recv, size_t buff
 	return recvlen;
 }
 
-void openserver(int port) {
+void begin(int port) {
 	int listenfd, connfd;
 	struct sockaddr_in server, client;
 	rio_t rp;
@@ -227,9 +227,9 @@ int main(int argc, char **argv)
 			exit(0);
 	}
 
-	sem_init(mutex, 0, 1);
+	sem_init(&mutex, 0, 1);
 
-	openserver(atoi(argv[1]));
+	begin(atoi(argv[1]));
 		
 	/* close log file */
 	fclose(fp);
