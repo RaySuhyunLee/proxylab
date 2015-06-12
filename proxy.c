@@ -38,11 +38,14 @@ void begin(int port);
 int parse_line(char* input, char* output, size_t buffersize);
 
 void* process_request(void* vargp) {
-	int connfd = *(int*)vargp;
+	int connfd;
   ssize_t readlen, writelen;
 	int SEND_BUFFER_SIZE = 100, RECV_BUFFER_SIZE = 100;
 	char msg_send[SEND_BUFFER_SIZE], msg_recv[RECV_BUFFER_SIZE];
 	rio_t rp;
+
+	connfd = *(int*)vargp;
+	free(vargp);
 
 	Rio_readinitb(&rp, connfd);
 	
