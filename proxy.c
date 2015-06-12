@@ -196,6 +196,7 @@ void begin(int port) {
 	int listenfd, *connfdp;
 	struct sockaddr_in server, client;
 	int clientlen;
+	pthread_t pt;
 	
 	/* get a socket */
 	listenfd = Socket(PF_INET, SOCK_STREAM, 0);
@@ -218,7 +219,8 @@ void begin(int port) {
 		*connfdp = Accept(listenfd,
 						(struct sockaddr*)&client, &clientlen);
 		/* create a new thread */
-		pthread_create(NULL, NULL, process_request, connfdp);
+		pthread_create(&pt, NULL, process_request, connfdp);
+		pthread_detach(pt);
 	}
 }
 
