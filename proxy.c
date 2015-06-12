@@ -22,7 +22,7 @@
 /* Undefine this if you don't want debugging output */
 #define DEBUG
 
-static sem_t *keyp;
+static sem_t key;
 
 /*
  * Functions to define
@@ -55,7 +55,7 @@ void* process_request(void* vargp) {
 			break;
 
 		msg_recv[readlen] = '\0';
-		printf("len: %lu, recv: %s", readlen, msg_recv);
+		printf("thread %u | len: %lu, recv: %s", pthread_self(), readlen, msg_recv);
 		fflush(stdout);
 
 		if((writelen = parse_line(msg_recv, msg_send, SEND_BUFFER_SIZE-1)) >= 0) {
@@ -171,7 +171,7 @@ int sendtoserver(char* host, int port, char* msg_send, char* msg_recv, size_t bu
 	ssize_t recvlen;
 
 	/* connect to the server */
-	sockfd = open_clientfd_ts(host, port, keyp);
+	sockfd = open_clientfd_ts(host, port, &key);
 
 	/* initialize rio_t */
 	Rio_readinitb(&rp, sockfd);
@@ -217,7 +217,8 @@ void begin(int port) {
 		connfdp = malloc(sizeof(int));
 		*connfdp = Accept(listenfd,
 						(struct sockaddr*)&client, &clientlen);
-		process_request(connfdp);
+		/* create a new thread */
+		pthread_create(NULL, NULL, process_request, connfdp);
 	}
 }
 
@@ -238,12 +239,8 @@ int main(int argc, char **argv)
 			exit(0);
 	}
 
-	/* open a named semaphore */
-	if((keyp = sem_open("key", O_CREAT, 0, 1)) == SEM_FAILED) {
-		printf("Failed to open a semaphore");
-		return 1;
-	}
-
+	/* init semaphore */
+	sem_init(&key, 0, 1);
 	begin(atoi(argv[1]));
 		
 	/* close log file */
