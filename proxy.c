@@ -24,10 +24,10 @@
 
 static sem_t key;
 
-/*struct cinfo {
-	int connfd;
-	sockaddr_in server;
-}*/
+struct connection_info {
+	int fd;
+	struct sockaddr_in addr;
+};
 
 /*
  * Functions to define
@@ -43,16 +43,16 @@ void begin(int port);
 int parse_line(char* input, char* output, size_t buffersize);
 
 void* process_request(void* vargp) {
-	int connfd;
+	struct connection_info cinfo;
   ssize_t readlen, writelen;
 	int SEND_BUFFER_SIZE = 100, RECV_BUFFER_SIZE = 100;
 	char msg_send[SEND_BUFFER_SIZE], msg_recv[RECV_BUFFER_SIZE];
 	rio_t rp;
 
-	connfd = *(int*)vargp;
+	cinfo = *(struct connection_info*)vargp;
 	free(vargp);
 
-	Rio_readinitb(&rp, connfd);
+	Rio_readinitb(&rp, cinfo.fd);
 	
 	while(1) {
 		readlen = Rio_readlineb_w(&rp, msg_recv, RECV_BUFFER_SIZE-1);
@@ -66,13 +66,15 @@ void* process_request(void* vargp) {
 		fflush(stdout);
 
 		if((writelen = parse_line(msg_recv, msg_send, SEND_BUFFER_SIZE-1)) >= 0) {
-			//fprintf("%s %d %d %s", "", 0, 0, "") 
-			Rio_writen_w(connfd, msg_send, writelen);
+			fprintf(stdout, "%s %d %d %s", 
+					inet_ntoa(cinfo.addr.sin_addr),
+					htons(cinfo.addr.sin_port), writelen, msg_send);
+			Rio_writen_w(cinfo.fd, msg_send, writelen);
 		}
 	}
 	
 	/* close */
-	Close(connfd);
+	Close(cinfo.fd);
 #ifdef DEBUG
 	printf("thread %u | I'm done. Bye~\n", pthread_self());
 #endif
@@ -204,8 +206,9 @@ int sendtoserver(char* host, int port, char* msg_send, char* msg_recv, size_t bu
 }
 
 void begin(int port) {
-	int listenfd, *connfdp;
-	struct sockaddr_in server, client;
+	int listenfd;
+	struct connection_info *cinfop;
+	struct sockaddr_in server;
 	int clientlen;
 	pthread_t pt;
 	
@@ -225,12 +228,12 @@ void begin(int port) {
 	Listen(listenfd, 1); // FIXME modify the connection number
 
 	while (1) {
-		clientlen = sizeof(client);
-		connfdp = malloc(sizeof(int));
-		*connfdp = Accept(listenfd,
-						(struct sockaddr*)&client, &clientlen);
+		clientlen = sizeof(cinfop->addr);
+		cinfop = malloc(sizeof(struct connection_info));
+		cinfop->fd = Accept(listenfd,
+						(struct sockaddr*)&(cinfop->addr), &clientlen);
 		/* create a new thread */
-		pthread_create(&pt, NULL, process_request, connfdp);
+		pthread_create(&pt, NULL, process_request, cinfop);
 		pthread_detach(pt);
 	}
 }
