@@ -24,6 +24,11 @@
 
 static sem_t key;
 
+/*struct cinfo {
+	int connfd;
+	sockaddr_in server;
+}*/
+
 /*
  * Functions to define
  */
@@ -55,16 +60,22 @@ void* process_request(void* vargp) {
 			break;
 
 		msg_recv[readlen] = '\0';
+#ifdef DEBUG
 		printf("thread %u | len: %lu, recv: %s", pthread_self(), readlen, msg_recv);
+#endif
 		fflush(stdout);
 
 		if((writelen = parse_line(msg_recv, msg_send, SEND_BUFFER_SIZE-1)) >= 0) {
+			//fprintf("%s %d %d %s", "", 0, 0, "") 
 			Rio_writen_w(connfd, msg_send, writelen);
 		}
 	}
 	
 	/* close */
 	Close(connfd);
+#ifdef DEBUG
+	printf("thread %u | I'm done. Bye~\n", pthread_self());
+#endif
 
 	return NULL;
 }
