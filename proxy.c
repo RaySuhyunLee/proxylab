@@ -22,7 +22,8 @@
 /* Undefine this if you don't want debugging output */
 #define DEBUG
 
-static sem_t key;
+static sem_t key; /* used in open_clientfd_ts() (for gethostbyname) */
+static sem_t logkey; /* used in process_request() (for logging) */
 
 struct connection_info {
 	int fd;
@@ -66,9 +67,11 @@ void* process_request(void* vargp) {
 		fflush(stdout);
 
 		if((writelen = parse_line(msg_recv, msg_send, SEND_BUFFER_SIZE-1)) >= 0) {
+			sem_wait(&logkey);
 			fprintf(stdout, "%s %d %d %s", 
 					inet_ntoa(cinfo.addr.sin_addr),
 					htons(cinfo.addr.sin_port), writelen, msg_send);
+			sem_post(&logkey);
 			Rio_writen_w(cinfo.fd, msg_send, writelen);
 		}
 	}
@@ -257,6 +260,7 @@ int main(int argc, char **argv)
 
 	/* init semaphore */
 	sem_init(&key, 0, 1);
+	sem_init(&logkey, 0, 1);
 	begin(atoi(argv[1]));
 		
 	/* close log file */
