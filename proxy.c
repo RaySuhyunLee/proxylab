@@ -23,13 +23,15 @@
 /* Undefine this if you don't want debugging output */
 #define DEBUG
 
-static sem_t key; /* used in open_clientfd_ts() (for gethostbyname) */
-static sem_t logkey; /* used in process_request() (for logging) */
-
 struct connection_info {
 	int fd;
 	struct sockaddr_in addr;
 };
+
+static sem_t key; /* used in open_clientfd_ts() (for gethostbyname) */
+static sem_t logkey; /* used in process_request() (for logging) */
+static FILE *logp;
+
 
 /*
  * Functions to define
@@ -66,17 +68,18 @@ void* process_request(void* vargp) {
 		msg_recv[readlen] = '\0';
 #ifdef DEBUG
 		printf("thread %u | len: %lu, recv: %s", pthread_self(), readlen, msg_recv);
-#endif
 		fflush(stdout);
+#endif
 
 		if((writelen = parse_line(msg_recv, msg_send, SEND_BUFFER_SIZE-1)) >= 0) {
 			/* lock to print log */
 			sem_wait(&logkey);
 			t = time(NULL);
-			fprintf(stdout, "%s: %s %d %d %s", 
+			fprintf(logp, "%s: %s %d %d %s", 
 					strtok(ctime(&t), "\n"), /* ctime: thread unsafe */
 					inet_ntoa(cinfo.addr.sin_addr), /* inet_ntoa: thread unsafe */
 					htons(cinfo.addr.sin_port), writelen, msg_send);
+			fflush(logp);
 			/* unlock */
 			sem_post(&logkey);
 			Rio_writen_w(cinfo.fd, msg_send, writelen);
@@ -254,10 +257,10 @@ void begin(int port) {
  */
 int main(int argc, char **argv)
 {
-	FILE* fp;
-
 	/* open a file for logging */
-	fp = fopen("./proxy.log", "w+");
+	logp = fopen("./proxy.log", "a");
+	if (!logp)
+		perror("fopen failed.\n");
 
 	/* Check arguments */
 	if (argc != 2) {
@@ -271,6 +274,6 @@ int main(int argc, char **argv)
 	begin(atoi(argv[1]));
 		
 	/* close log file */
-	fclose(fp);
+	fclose(logp);
 	return 0;
 }
