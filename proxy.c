@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "csapp.h"
 
@@ -49,6 +50,8 @@ void* process_request(void* vargp) {
 	int SEND_BUFFER_SIZE = 100, RECV_BUFFER_SIZE = 100;
 	char msg_send[SEND_BUFFER_SIZE], msg_recv[RECV_BUFFER_SIZE];
 	rio_t rp;
+	time_t t;
+	const char* usagestr = "proxy usage: <host> <port> <message>\n";
 
 	cinfo = *(struct connection_info*)vargp;
 	free(vargp);
@@ -67,12 +70,18 @@ void* process_request(void* vargp) {
 		fflush(stdout);
 
 		if((writelen = parse_line(msg_recv, msg_send, SEND_BUFFER_SIZE-1)) >= 0) {
+			/* lock to print log */
 			sem_wait(&logkey);
-			fprintf(stdout, "%s %d %d %s", 
-					inet_ntoa(cinfo.addr.sin_addr),
+			t = time(NULL);
+			fprintf(stdout, "%s: %s %d %d %s", 
+					strtok(ctime(&t), "\n"), /* ctime: thread unsafe */
+					inet_ntoa(cinfo.addr.sin_addr), /* inet_ntoa: thread unsafe */
 					htons(cinfo.addr.sin_port), writelen, msg_send);
+			/* unlock */
 			sem_post(&logkey);
 			Rio_writen_w(cinfo.fd, msg_send, writelen);
+		} else {
+			Rio_writen_w(cinfo.fd, (void*)usagestr, strlen(usagestr));
 		}
 	}
 	
@@ -153,7 +162,6 @@ int parse_line(char* input, char* output, size_t buffersize) {
 	char host[host_max+1];
 	int port;
 	int cnt=0, i, len;
-	char usage[] = "proxy usage: <host> <port> <message>\n";
 	len = strlen(input);
 	parsed[cnt++] = input;
 
@@ -170,8 +178,7 @@ int parse_line(char* input, char* output, size_t buffersize) {
 	
 	if ((parsed[2] == NULL)  /* arguments less than 3 */
 			|| (port = atoi(parsed[1])) == 0) { /* second argument is not a number */
-		strncpy(output, usage, strlen(usage));
-		return strlen(usage);
+		return -1;
 	} else {
 		return sendtoserver(host, port, parsed[2], output, buffersize);
 	}
