@@ -21,7 +21,7 @@
 #define PROXY_LOG "proxy.log"
 
 /* Undefine this if you don't want debugging output */
-#define DEBUG
+//#define DEBUG
 
 struct connection_info {
 	int fd;
@@ -46,14 +46,29 @@ int sendtoserver(char* host, int port, char* msg_send, char* msg_recv, size_t bu
 void begin(int port);
 int parse_line(char* input, char* output, size_t buffersize);
 
+void get_time_str(char* buf, int size) {
+	time_t t;
+	char* str;
+	char* cut[5];
+	t = time(NULL);
+	str = strtok(ctime(&t), "\n");
+	cut[0] = strtok(str, " ");
+	cut[1] = strtok(NULL, " ");
+	cut[2] = strtok(NULL, " ");
+	cut[3] = strtok(NULL, " ");
+	cut[4] = strtok(NULL, " ");
+	snprintf(buf, size, "%s %s %s %s %s %s",
+			cut[0], cut[2], cut[1], cut[4], cut[3], tzname[0]);
+}
+
 void* process_request(void* vargp) {
 	struct connection_info cinfo;
   ssize_t readlen, writelen;
 	int SEND_BUFFER_SIZE = 100, RECV_BUFFER_SIZE = 100;
 	char msg_send[SEND_BUFFER_SIZE], msg_recv[RECV_BUFFER_SIZE];
 	rio_t rp;
-	time_t t;
 	const char* usagestr = "proxy usage: <host> <port> <message>\n";
+	char timebuf[50];
 
 	cinfo = *(struct connection_info*)vargp;
 	free(vargp);
@@ -74,9 +89,9 @@ void* process_request(void* vargp) {
 		if((writelen = parse_line(msg_recv, msg_send, SEND_BUFFER_SIZE-1)) >= 0) {
 			/* lock to print log */
 			sem_wait(&logkey);
-			t = time(NULL);
+			get_time_str(timebuf, sizeof(timebuf));
 			fprintf(logp, "%s: %s %d %d %s", 
-					strtok(ctime(&t), "\n"), /* ctime: thread unsafe */
+					timebuf,
 					inet_ntoa(cinfo.addr.sin_addr), /* inet_ntoa: thread unsafe */
 					htons(cinfo.addr.sin_port), writelen, msg_send);
 			fflush(logp);
@@ -196,7 +211,6 @@ int sendtoserver(char* host, int port, char* msg_send, char* msg_recv, size_t bu
 	int sockfd;
 	rio_t rp;
 	ssize_t recvlen;
-	int conncnt;
 
 	/* connect to the server */
 	if ((sockfd = open_clientfd_ts(host, port, &key)) < 0) {
@@ -271,7 +285,7 @@ void begin(int port) {
 int main(int argc, char **argv)
 {
 	/* open a file for logging */
-	logp = fopen("./proxy.log", "a");
+	logp = fopen("./proxy.log", "w+");
 	if (!logp)
 		perror("fopen failed.\n");
 
