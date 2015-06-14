@@ -102,7 +102,7 @@ int open_clientfd_ts(char *hostname, int port, sem_t *mutexp) {
 	struct hostent *hep;
 	struct sockaddr_in server;
 
-	if ((clientfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+	if ((clientfd = Socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		return -1;
 	}
 	
@@ -125,6 +125,7 @@ int open_clientfd_ts(char *hostname, int port, sem_t *mutexp) {
 	sem_post(mutexp);
 
 	if (connect(clientfd, (struct sockaddr*)&server, sizeof(server)) < 0) {
+		Close(clientfd);
 		return -1;
 	}
 	return clientfd;
@@ -195,9 +196,16 @@ int sendtoserver(char* host, int port, char* msg_send, char* msg_recv, size_t bu
 	int sockfd;
 	rio_t rp;
 	ssize_t recvlen;
+	int conncnt;
 
 	/* connect to the server */
-	sockfd = open_clientfd_ts(host, port, &key);
+	if ((sockfd = open_clientfd_ts(host, port, &key)) < 0) {
+		printf("failed to open client(errno: %d)\n", errno);
+		return 0;
+	}
+#ifdef DEBUG
+	printf("opened socket to server: %d\n", sockfd);
+#endif
 
 	/* initialize rio_t */
 	Rio_readinitb(&rp, sockfd);
@@ -215,6 +223,9 @@ int sendtoserver(char* host, int port, char* msg_send, char* msg_recv, size_t bu
 #endif
 	/* close */
 	Close(sockfd);
+#ifdef DEBUG
+	printf("closed socket %d to server\n", sockfd);
+#endif
 	return recvlen;
 }
 
@@ -249,6 +260,8 @@ void begin(int port) {
 		pthread_create(&pt, NULL, process_request, cinfop);
 		pthread_detach(pt);
 	}
+
+	Close(listenfd);
 }
 
 
