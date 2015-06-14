@@ -23,6 +23,7 @@
 /* Undefine this if you don't want debugging output */
 //#define DEBUG
 
+/* struct that contains connection information */
 struct connection_info {
 	int fd;
 	struct sockaddr_in addr;
@@ -30,7 +31,7 @@ struct connection_info {
 
 static sem_t key; /* used in open_clientfd_ts() (for gethostbyname) */
 static sem_t logkey; /* used in process_request() (for logging) */
-static FILE *logp;
+static FILE *logp; /* log file descriptor */
 
 
 /*
@@ -46,6 +47,7 @@ int sendtoserver(char* host, int port, char* msg_send, char* msg_recv, size_t bu
 void begin(int port);
 int parse_line(char* input, char* output, size_t buffersize);
 
+/* fill in the buffer with human-readable current local time string */
 void get_time_str(char* buf, int size) {
 	time_t t;
 	char* str;
@@ -61,6 +63,10 @@ void get_time_str(char* buf, int size) {
 			cut[0], cut[2], cut[1], cut[4], cut[3], tzname[0]);
 }
 
+/* thread function.
+ * Open a new client that connects to the real server.
+ * Do overall works from receiving request from the client
+ * to sending messages from the real server to client. */
 void* process_request(void* vargp) {
 	struct connection_info cinfo;
   ssize_t readlen, writelen;
@@ -89,7 +95,7 @@ void* process_request(void* vargp) {
 		if((writelen = parse_line(msg_recv, msg_send, SEND_BUFFER_SIZE-1)) >= 0) {
 			/* lock to print log */
 			sem_wait(&logkey);
-			get_time_str(timebuf, sizeof(timebuf));
+			get_time_str(timebuf, sizeof(timebuf)); /* thread unsafe */
 			fprintf(logp, "%s: %s %d %d %s", 
 					timebuf,
 					inet_ntoa(cinfo.addr.sin_addr), /* inet_ntoa: thread unsafe */
@@ -126,6 +132,7 @@ int open_clientfd_ts(char *hostname, int port, sem_t *mutexp) {
 	server.sin_port = htons(port);
 
 	/* get the address */
+	/* lock */
 	sem_wait(mutexp);
 	hep = gethostbyname(hostname); /* thread unsafe */
 	if (hep == NULL) {
@@ -137,8 +144,10 @@ int open_clientfd_ts(char *hostname, int port, sem_t *mutexp) {
 				(char*)&server.sin_addr.s_addr,
 				hep->h_length);
 	}
+	/* unlock */
 	sem_post(mutexp);
 
+	/* connect to the server */
 	if (connect(clientfd, (struct sockaddr*)&server, sizeof(server)) < 0) {
 		Close(clientfd);
 		return -1;
